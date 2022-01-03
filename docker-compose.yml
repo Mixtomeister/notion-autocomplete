@@ -5,6 +5,8 @@ services:
     image: rabbitmq:3.9.11-alpine
     ports:
       - 5672:5672
+    networks:
+      - internal
 
   checker:
     image: notion-autocomplete:latest
@@ -13,6 +15,8 @@ services:
     command: celery -A celeryapp worker -l INFO -Q checker -n checker@%h
     depends_on:
       - rabbit
+    networks:
+      - internal
 
   updater:
     image: notion-autocomplete:latest
@@ -21,6 +25,8 @@ services:
     command: celery -A celeryapp worker -l INFO -Q updater -n updater@%h
     depends_on:
       - rabbit
+    networks:
+      - internal
 
   beat:
     image: notion-autocomplete:latest
@@ -29,6 +35,8 @@ services:
     command: celery -A celeryapp beat -l INFO
     depends_on:
       - rabbit
+    networks:
+      - internal
 
   flower:
     image: mher/flower
@@ -39,3 +47,18 @@ services:
       - FLOWER_PORT=5555
     depends_on:
       - rabbit
+    networks:
+      - internal
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.routers.flower.entrypoints=web"
+      - "traefik.http.routers.flower.rule=PathPrefix(`/flower/`)"
+      - "traefik.http.services.flower.loadbalancer.server.port=5555"
+
+networks:
+  internal:
+    external: false
+  web:
+    external: true
