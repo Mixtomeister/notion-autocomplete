@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  rabbit:
+    image: rabbitmq:3.9.11-alpine
+    ports:
+      - 5672:5672
+
+  checker:
+    image: notion-autocomplete:latest
+    deploy:
+      replicas: 2
+    command: celery -A celeryapp worker -l INFO -Q checker -n checker@%h
+    depends_on:
+      - rabbit
+
+  updater:
+    image: notion-autocomplete:latest
+    deploy:
+      replicas: 1
+    command: celery -A celeryapp worker -l INFO -Q updater -n updater@%h
+    depends_on:
+      - rabbit
+
+  beat:
+    image: notion-autocomplete:latest
+    deploy:
+      replicas: 1
+    command: celery -A celeryapp beat -l INFO
+    depends_on:
+      - rabbit
+
+  flower:
+    image: mher/flower
+    ports:
+      - 5555:5555
+    environment:
+      - CELERY_BROKER_URL=pyamqp://guest@rabbit//
+      - FLOWER_PORT=5555
+    depends_on:
+      - rabbit
