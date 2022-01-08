@@ -174,3 +174,6 @@ pip-selfcheck.json
 !.vscode/*.code-snippets
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,python,virtualenv
+
+# Database configuration file
+config.json

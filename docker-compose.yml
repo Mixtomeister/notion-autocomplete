@@ -17,6 +17,15 @@ services:
       - rabbit
     networks:
       - internal
+    volumes:
+      - .:/app
+    environment:
+      - NOTION_API_TOKEN=${NOTION_API_TOKEN}
+      - NOTION_API_VERSION=${NOTION_API_VERSION}
+      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
+      - IGDB_API_TOKEN=${IGDB_API_TOKEN}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_BACKEND_URL=${CELERY_BACKEND_URL}
 
   updater:
     image: notion-autocomplete:latest
@@ -27,6 +36,15 @@ services:
       - rabbit
     networks:
       - internal
+    volumes:
+      - .:/app
+    environment:
+      - NOTION_API_TOKEN=${NOTION_API_TOKEN}
+      - NOTION_API_VERSION=${NOTION_API_VERSION}
+      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
+      - IGDB_API_TOKEN=${IGDB_API_TOKEN}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_BACKEND_URL=${CELERY_BACKEND_URL}
 
   beat:
     image: notion-autocomplete:latest
@@ -37,19 +55,23 @@ services:
       - rabbit
     networks:
       - internal
+    volumes:
+      - .:/app
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_BACKEND_URL=${CELERY_BACKEND_URL}
 
   flower:
     image: mher/flower
     ports:
       - 5555:5555
     environment:
-      - CELERY_BROKER_URL=pyamqp://guest@rabbit//
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
       - FLOWER_PORT=5555
     depends_on:
       - rabbit
     networks:
       - internal
-      - web
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=web"
@@ -60,5 +82,3 @@ services:
 networks:
   internal:
     external: false
-  web:
-    external: true
