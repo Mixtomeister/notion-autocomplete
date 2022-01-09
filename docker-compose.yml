@@ -11,7 +11,7 @@ services:
   checker:
     image: notion-autocomplete:latest
     deploy:
-      replicas: 2
+      replicas: 1
     command: celery -A celeryapp worker -l INFO -Q checker -n checker@%h
     depends_on:
       - rabbit
