@@ -41,38 +41,46 @@ class GameUpdater(BaseUpdater):
 
         notion = NotionClient(auth=os.environ["NOTION_API_TOKEN"])
 
+        properties = {}
+        cover = None
+
+        if 'name' in game and game['name']:
+            properties['Name'] = { "title": game['name'] }
+
+        if 'collection' in game and game['collection']:
+            properties['Collection'] = { "select": game['collection'] }
+
+        if 'category' in game and game['category']:
+            properties['Type'] = { "select": game['category'] }
+
+        if 'developers' in game and game['developers']:
+            properties['Developers'] = { "multi_select": game['developers'] }
+
+        if 'publishers' in game and game['publishers']:
+            properties['Publishers'] = { "multi_select": game['publishers'] }
+        
+        if 'Publishers' not in properties and 'Developers' in properties:
+            properties['Publishers'] = properties['Developers']
+
+        if 'genres' in game and game['genres']:
+            properties['Genres'] = { "multi_select": game['genres'] }
+
+        if 'release_date' in game and game['release_date']:
+            properties['Release date'] = { "date": game['release_date'] }
+
+        if 'cover' in game and game['cover']:
+            cover = {
+                "type": "external",
+                "external": {
+                    "url": game['cover']
+                }
+            }
+
         notion.pages.update(
             **{
                 "page_id": self.page['id'],
-                "properties": {
-                    "Name": {
-                        "title": game['name']
-                    },
-                    'Collection': {
-                        'select': game['collection']
-                    },
-                    'Type': {
-                        'select': game['category']
-                    },
-                    'Developers': {
-                        'multi_select': game['developers']
-                    },
-                    'Publishers': {
-                        'multi_select': game['publishers']
-                    },
-                    'Genres': {
-                        'multi_select': game['genres']
-                    },
-                    'Release date': {
-                        'date': game['release_date']
-                    }
-                },
-                'cover': {
-                    "type": "external",
-                    "external": {
-                        "url": game['cover']
-                    }
-                }
+                "properties": properties,
+                'cover': cover
             }
         )
 
@@ -103,60 +111,72 @@ class GameUpdater(BaseUpdater):
         response.ParseFromString(byte_array)
 
         if not len(response.games):
-            raise Exception('No games found')
+            return {
+                'name': self._get_name('Game not found')
+            }
+
 
         game = response.games[0]
 
         return {
-            'name': self._get_name(game),
-            'cover': self._get_cover(game),
-            'collection': self._get_collection(game),
-            'release_date': self._get_release_date(game),
-            'developers': self._get_developers(game),
-            'publishers': self._get_publishers(game),
-            'genres': self._get_genres(game),
-            'category': self._get_category(game)
+            'name': self._get_name(game.name),
+            'cover': self._get_cover(game.cover.image_id),
+            'collection': self._get_collection(game.collection.name),
+            'release_date': self._get_release_date(game.first_release_date.seconds),
+            'developers': self._get_developers(game.involved_companies),
+            'publishers': self._get_publishers(game.involved_companies),
+            'genres': self._get_genres(game.genres),
+            'category': self._get_category(game.category)
         }
 
-    def _get_name(self, game):
-        return [
-            {
-                "type": "text",
-                "text": {
-                    "content": game.name
+    def _get_name(self, name):
+        if name:
+            return [
+                {
+                    "type": "text",
+                    "text": {
+                        "content": self._remove_commas(name)
+                    }
                 }
-            }
-        ]
+            ]
 
-    def _get_cover(self, game):
-        return f'https://images.igdb.com/igdb/image/upload/t_cover_big/{game.cover.image_id}.png'
+    def _get_cover(self, image_id):
+        if image_id:
+            return f'https://images.igdb.com/igdb/image/upload/t_cover_big/{image_id}.png'
 
-    def _get_collection(self, game):
-        return {'name': game.collection.name}
+    def _get_collection(self, name):
+        if name:
+            return {'name': self._remove_commas(name)}
 
-    def _get_release_date(self, game):
-        return {'start': datetime.utcfromtimestamp(game.first_release_date.seconds).strftime('%Y-%m-%d')}
+    def _get_release_date(self, timestamp):
+        return {'start': datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d')}
 
-    def _get_developers(self, game):
+    def _get_developers(self, involved_companies):
         developers = []
 
-        for i in game.involved_companies:
+        for i in involved_companies:
             if i.developer or i.porting:
-                developers.append({'name': i.company.name})
+                developers.append({'name': self._remove_commas(i.company.name)})
+        
+        if developers:
+            return developers
 
-        return developers
-
-    def _get_publishers(self, game):
+    def _get_publishers(self, involved_companies):
         publishers = []
 
-        for i in game.involved_companies:
+        for i in involved_companies:
             if i.publisher:
-                publishers.append({'name': i.company.name})
+                publishers.append({'name': self._remove_commas(i.company.name)})
 
-        return publishers
+        if publishers:
+            return publishers
 
-    def _get_genres(self, game):
-        return [{'name': i.name} for i in game.genres]
+    def _get_genres(self, genres):
+        if genres:
+            return [{'name': self._remove_commas(i.name)} for i in genres]
 
-    def _get_category(self, game):
-        return {'name': GameCategoryEnum.Name(game.category).replace('_', ' ').capitalize()}
+    def _get_category(self, category):
+        return {'name': self._remove_commas(GameCategoryEnum.Name(category).replace('_', ' ').capitalize())}
+
+    def _remove_commas(self, text):
+        return text.replace(',', '')
