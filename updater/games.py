@@ -9,6 +9,7 @@ from datetime import datetime
 
 import os
 import requests
+import re
 
 
 def refresh_twitch_token():
@@ -88,6 +89,11 @@ class GameUpdater(BaseUpdater):
 
     def _retrieve(self, search):
         igdb = IGDBWrapper(os.environ.get('IGDB_CLIENT_ID'), os.environ.get('IGDB_API_TOKEN'))
+        query = f'search "{search}"'
+
+        if re.match('igdb:[1-9]+', search):
+            igdb_id = int(search.split(':')[1])
+            query = f'where id = {igdb_id}'
 
         byte_array = igdb.api_request(
             'games.pb',
@@ -103,7 +109,7 @@ class GameUpdater(BaseUpdater):
             involved_companies.developer,
             involved_companies.porting,
             involved_companies.publisher;
-            search "{search}";
+            {query};
             '''
         )
 
